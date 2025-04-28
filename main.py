@@ -1,6 +1,5 @@
-from fastapi import Response, FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import StreamingResponse
-from typing import List, Optional
 import pandas as pd
 import fitz  # PyMuPDF
 import io
@@ -8,32 +7,22 @@ import io
 app = FastAPI()
 
 @app.post("/highlight-terms/")
-async def highlight_terms(
-    pdf_file: UploadFile = File(...),
-    excel_file: Optional[UploadFile] = File(None),
-):
-    # Validate that at least excel_file or words are provided
-    if not pdf_file:
-        raise HTTPException(status_code=400, detail="You must provide a PDF for review.")
-
-    # If Excel file is provided
+async def highlight_terms(excel_file: UploadFile | None = None, pdf_file: UploadFile = File(...)):
+    # Read uploaded files into memory
     if excel_file:
-        excel_content = await excel_file.read()
-        words_to_check = read_excel_words(io.BytesIO(excel_content))
+        excel_contents = await excel_file.read()
+        words_to_check = read_excel_words(io.BytesIO(excel_contents))
     else:
         words_to_check = DEFAULT_LIST
+    
+    pdf_contents = await pdf_file.read()
 
-    if not words_to_check:
-        raise HTTPException(status_code=400, detail="No words provided for checking.")
+    # Process PDF file in memory and get output bytes
+    output_pdf_stream = check_words_in_text(words_to_check, io.BytesIO(pdf_contents))
 
-    pdf_content = await pdf_file.read()
-    highlighted_pdf = check_words_in_text(words_to_check, io.BytesIO(pdf_content))
+    # Return the modified PDF to user
+    return StreamingResponse(output_pdf_stream, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=highlighted_output.pdf"})
 
-    return StreamingResponse(
-        content=highlighted_pdf.getvalue(),
-        media_type="application/pdf",
-        headers={"Content-Disposition": "attachment; filename=highlighted_output.pdf"}
-    )
 
 
 def read_excel_words(excel_stream):
@@ -66,7 +55,6 @@ def check_words_in_text(words, pdf_stream):
     output_stream.seek(0)  # Rewind to the beginning for StreamingResponse
 
     return output_stream
-
 
 DEFAULT_LIST = [
     'activism',
