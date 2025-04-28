@@ -1,5 +1,6 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import Response, FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import StreamingResponse
+from typing import List, Optional
 import pandas as pd
 import fitz  # PyMuPDF
 import io
@@ -7,20 +8,32 @@ import io
 app = FastAPI()
 
 @app.post("/highlight-terms/")
-async def highlight_terms(excel_file: UploadFile = File(...), pdf_file: UploadFile = File(...)):
-    # Read uploaded files into memory
-    excel_contents = await excel_file.read()
-    pdf_contents = await pdf_file.read()
+async def highlight_terms(
+    pdf_file: UploadFile = File(...),
+    excel_file: Optional[UploadFile] = File(None),
+):
+    # Validate that at least excel_file or words are provided
+    if not pdf_file:
+        raise HTTPException(status_code=400, detail="You must provide a PDF for review.")
 
-    # Process Excel file in memory
-    words_to_check = read_excel_words(io.BytesIO(excel_contents))
+    # If Excel file is provided
+    if excel_file:
+        excel_content = await excel_file.read()
+        words_to_check = read_excel_words(io.BytesIO(excel_content))
+    else:
+        words_to_check = DEFAULT_LIST
 
-    # Process PDF file in memory and get output bytes
-    output_pdf_stream = check_words_in_text(words_to_check, io.BytesIO(pdf_contents))
+    if not words_to_check:
+        raise HTTPException(status_code=400, detail="No words provided for checking.")
 
-    # Return the modified PDF to user
-    return StreamingResponse(output_pdf_stream, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=highlighted_output.pdf"})
+    pdf_content = await pdf_file.read()
+    highlighted_pdf = check_words_in_text(words_to_check, io.BytesIO(pdf_content))
 
+    return StreamingResponse(
+        content=highlighted_pdf.getvalue(),
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=highlighted_output.pdf"}
+    )
 
 
 def read_excel_words(excel_stream):
@@ -53,3 +66,108 @@ def check_words_in_text(words, pdf_stream):
     output_stream.seek(0)  # Rewind to the beginning for StreamingResponse
 
     return output_stream
+
+
+DEFAULT_LIST = [
+    'activism',
+    'activists',
+    'advocacy',
+    'advocate',
+    'advocates',
+    'barrier', 
+    'barriers',
+    'biased',
+    'biased toward',
+    'biases',
+    'biases towards',
+    'bipoc',
+    'black and latinx',
+    'community diversity',
+    'community equity',
+    'cultural differences',
+    'cultural heritage',
+    'culturally responsive',
+    'disabilities',
+    'disability',
+    'discriminated',
+    'discrimination',
+    'discriminatory',
+    'diverse backgrounds',
+    'diverse communities',
+    'diverse community',
+    'diverse group',
+    'diverse groups',
+    'diversified',
+    'diversify',
+    'diversifying',
+    'diversity and inclusion',
+    'diversity equity',
+    'enhance the diversity',
+    'enhancing diversity',
+    'equal opportunity', 
+    'equality', 
+    'equitable', 
+    'equity', 
+    'ethnicity', 
+    'excluded', 
+    'female', 
+    'females',
+    'fostering inclusivity',
+    'gender', 
+    'gender diversity', 
+    'genders', 
+    'hate speech',
+    'hispanic minority',
+    'historically',
+    'lgbt', 
+    'implicit bias', 
+    'implicit biases', 
+    'inclusion', 
+    'inclusive',
+    'inclusiveness',
+    'inclusivity',
+    'increase diversity', 
+    'increase the diversity', 
+    'indigenous community',
+    'inequalities', 
+    'inequality', 
+    'inequitable', 
+    'inequities', 
+    'institutional', 
+    'marginalize', 
+    'marginalized',
+    'minorities',
+    'minority',
+    'multicultural',
+    'polarization',
+    'political',
+    'prejudice', 
+    'privileges',
+    'promoting diversity',
+    'race and ethnicity',
+    'racial',
+    'racial diversity', 
+    'racial inequality',
+    'racial justice',
+    'racially',
+    'racism',
+    'sense of belonging',
+    'sexual preferences', 
+    'social justice',
+    'sociocultural',
+    'socioeconomic',
+    'status',
+    'stereotypes',
+    'systemic',
+    'trauma', 
+    'under appreciated',
+    'under represented',
+    'under served',
+    'underrepresentation',
+    'underrepresented', 
+    'underserved', 
+    'undervalued',
+    'victim',
+    'women',
+    'women and underrepresented'
+]
