@@ -6,6 +6,15 @@ import io
 
 app = FastAPI()
 
+# Add this after app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # <-- For now, allow all origins (you can restrict later)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 @app.post("/highlight-terms/")
 async def highlight_terms(excel_file: UploadFile | None = None, pdf_file: UploadFile = File(...)):
     # Read uploaded files into memory
