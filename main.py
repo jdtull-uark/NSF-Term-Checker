@@ -36,13 +36,14 @@ async def highlight_terms(
 
     found_words_json = json.dumps(found_words)
 
-    response = StreamingResponse(
+    return StreamingResponse(
         output_pdf_stream,
         media_type="application/pdf",
+        headers={
+            "Content-Disposition": "attachment; filename=highlighted_output.pdf",
+            "CRED-Found-Words": found_words_json  # <-- Custom header
+        }
     )
-    response.headers["Content-Disposition"] = "attachment; filename=highlighted_output.pdf"
-    response.headers["X-Found-Words"] = found_words_json  # Custom header
-    return response
 
 
 def read_excel_words(excel_stream):
