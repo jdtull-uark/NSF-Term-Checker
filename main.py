@@ -54,7 +54,6 @@ async def highlight_terms(
         output_pdf_stream,
         media_type="application/pdf",
     )
-    response.headers["Content-Disposition"] = "attachment; filename=highlighted_output.pdf"
     return response
 
 
