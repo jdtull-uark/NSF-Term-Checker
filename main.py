@@ -4,7 +4,6 @@ from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import fitz  # PyMuPDF
 import io
-import json
 
 app = FastAPI()
 
@@ -17,33 +16,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 @app.post("/highlight-terms/")
-async def highlight_terms(
-    excel_file: UploadFile | None = None,
-    pdf_file: UploadFile = File(...),
-):
+async def highlight_terms(excel_file: UploadFile | None = None, pdf_file: UploadFile = File(...)):
+    # Read uploaded files into memory
     if excel_file:
         excel_contents = await excel_file.read()
         words_to_check = read_excel_words(io.BytesIO(excel_contents))
     else:
         words_to_check = DEFAULT_LIST
-
+    
     pdf_contents = await pdf_file.read()
 
-    # Highlight and get both PDF stream and found words
-    output_pdf_stream, found_words = check_words_in_text(words_to_check, io.BytesIO(pdf_contents))
+    # Process PDF file in memory and get output bytes
+    output_pdf_stream = check_words_in_text(words_to_check, io.BytesIO(pdf_contents))
 
-    found_words_json = json.dumps(found_words)
+    # Return the modified PDF to user
+    return StreamingResponse(output_pdf_stream, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=highlighted_output.pdf"})
 
-    return StreamingResponse(
-        output_pdf_stream,
-        media_type="application/pdf",
-        headers={
-            "Content-Disposition": "attachment; filename=highlighted_output.pdf",
-            "X-Found-Words": found_words_json  # <-- Custom header
-        }
-    )
 
 
 def read_excel_words(excel_stream):
@@ -56,20 +45,26 @@ def read_excel_words(excel_stream):
 def check_words_in_text(words, pdf_stream):
     """Highlight words in a PDF loaded from BytesIO, and return a new BytesIO with modified PDF."""
     doc = fitz.open(stream=pdf_stream, filetype="pdf")
+
     found_words = {}
 
     for page in doc:
         for word in words:
-            for inst in page.search_for(word):
-                found_words[word] = found_words.get(word, 0) + 1
+            word_instances = page.search_for(word)
+            for inst in word_instances:
+                if word in found_words:
+                    found_words[word] += 1
+                else:
+                    found_words[word] = 1
                 highlight = page.add_highlight_annot(inst)
                 highlight.update()
 
+    # Save to a new BytesIO object
     output_stream = io.BytesIO()
     doc.save(output_stream, garbage=4, deflate=True, clean=True)
-    output_stream.seek(0)
+    output_stream.seek(0)  # Rewind to the beginning for StreamingResponse
 
-    return output_stream, found_words
+    return output_stream
 
 DEFAULT_LIST = [
     'activism',
