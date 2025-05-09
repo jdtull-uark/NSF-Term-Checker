@@ -16,6 +16,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.post("/flag-terms/")
+async def flag_terms(
+    excel_file: UploadFile | None = None,
+    pdf_file: UploadFile = File(...),
+):
+    if excel_file:
+        excel_contents = await excel_file.read()
+        words_to_check = read_excel_words(io.BytesIO(excel_contents))
+    else:
+        words_to_check = DEFAULT_LIST
+
+    pdf_contents = await pdf_file.read()
+    analysis_result = find_words_in_text(words_to_check, io.BytesIO(pdf_contents))
+
+    return JSONResponse(content=analysis_result)
+
 @app.post("/highlight-terms/")
 async def highlight_terms(excel_file: UploadFile | None = None, pdf_file: UploadFile = File(...)):
     # Read uploaded files into memory
