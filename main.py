@@ -1,5 +1,5 @@
 from fastapi import FastAPI, UploadFile, File
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import fitz  # PyMuPDF
@@ -44,7 +44,7 @@ async def highlight_terms(excel_file: UploadFile | None = None, pdf_file: Upload
     pdf_contents = await pdf_file.read()
 
     # Process PDF file in memory and get output bytes
-    output_pdf_stream = check_words_in_text(words_to_check, io.BytesIO(pdf_contents))
+    output_pdf_stream = highlight_words_in_text(words_to_check, io.BytesIO(pdf_contents))
 
     # Return the modified PDF to user
     return StreamingResponse(output_pdf_stream, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=highlighted_output.pdf"})
@@ -58,7 +58,23 @@ def read_excel_words(excel_stream):
     return words
 
 
-def check_words_in_text(words, pdf_stream):
+def find_words_in_text(words, pdf_stream):
+    doc = fitz.open(stream=pdf_stream, filetype="pdf")
+    results = {}
+
+    for page_num, page in enumerate(doc, start=1):
+        for word in words:
+            instances = page.search_for(word)
+            if instances:
+                if word not in results:
+                    results[word] = {"count": 0, "pages": []}
+                results[word]["count"] += len(instances)
+                results[word]["pages"].append(page_num)
+
+    return results
+
+
+def highlight_words_in_text(words, pdf_stream):
     """Highlight words in a PDF loaded from BytesIO, and return a new BytesIO with modified PDF."""
     doc = fitz.open(stream=pdf_stream, filetype="pdf")
 
