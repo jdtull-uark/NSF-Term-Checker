@@ -44,13 +44,17 @@ async def highlight_terms(
         words_to_check = read_excel_words(io.BytesIO(excel_contents))
     else:
         words_to_check = DEFAULT_LIST
-    
+
     pdf_contents = await pdf_file.read()
 
+    # Highlight and get both PDF stream and found words
     output_pdf_stream = highlight_words_in_text(words_to_check, io.BytesIO(pdf_contents))
 
-    return StreamingResponse(output_pdf_stream, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=highlighted_output.pdf"})
-
+    response = StreamingResponse(
+        output_pdf_stream,
+        media_type="application/pdf",
+    )
+    return response
 
 
 def read_excel_words(excel_stream):
