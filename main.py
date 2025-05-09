@@ -1,5 +1,5 @@
 from fastapi import FastAPI, UploadFile, File
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import fitz  # PyMuPDF
@@ -17,6 +17,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.post("/flag-terms/")
+async def flag_terms(
+    excel_file: UploadFile | None = None,
+    pdf_file: UploadFile = File(...),
+):
+    if excel_file:
+        excel_contents = await excel_file.read()
+        words_to_check = read_excel_words(io.BytesIO(excel_contents))
+    else:
+        words_to_check = DEFAULT_LIST
+
+    pdf_contents = await pdf_file.read()
+    analysis_result = find_words_in_text(words_to_check, io.BytesIO(pdf_contents))
+
+    return JSONResponse(content=analysis_result)
+
 
 @app.post("/highlight-terms/")
 async def highlight_terms(
@@ -32,16 +48,13 @@ async def highlight_terms(
     pdf_contents = await pdf_file.read()
 
     # Highlight and get both PDF stream and found words
-    output_pdf_stream, found_words = check_words_in_text(words_to_check, io.BytesIO(pdf_contents))
-
-    found_words_json = json.dumps(found_words)
+    output_pdf_stream = highlight_words_in_text(words_to_check, io.BytesIO(pdf_contents))
 
     response = StreamingResponse(
         output_pdf_stream,
         media_type="application/pdf",
     )
     response.headers["Content-Disposition"] = "attachment; filename=highlighted_output.pdf"
-    response.headers["X-Found-Words"] = found_words_json  # Custom header
     return response
 
 
@@ -51,8 +64,22 @@ def read_excel_words(excel_stream):
     words = df.iloc[:, 0].dropna().tolist()
     return words
 
+def find_words_in_text(words, pdf_stream):
+    doc = fitz.open(stream=pdf_stream, filetype="pdf")
+    results = {}
 
-def check_words_in_text(words, pdf_stream):
+    for page_num, page in enumerate(doc, start=1):
+        for word in words:
+            instances = page.search_for(word)
+            if instances:
+                if word not in results:
+                    results[word] = {"count": 0, "pages": []}
+                results[word]["count"] += len(instances)
+                results[word]["pages"].append(page_num)
+
+    return results
+
+def highlight_words_in_text(words, pdf_stream):
     """Highlight words in a PDF loaded from BytesIO, and return a new BytesIO with modified PDF."""
     doc = fitz.open(stream=pdf_stream, filetype="pdf")
     found_words = {}
