@@ -41,7 +41,7 @@ async def highlight_terms(
         media_type="application/pdf",
         headers={
             "Content-Disposition": "attachment; filename=highlighted_output.pdf",
-            "CRED-Found-Words": found_words_json  # <-- Custom header
+            "X-Found-Words": found_words_json  # <-- Custom header
         }
     )
 
