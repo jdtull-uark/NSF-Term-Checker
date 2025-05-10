@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import fitz  # PyMuPDF
 import io
+import re
 
 app = FastAPI()
 
@@ -58,21 +59,33 @@ def read_excel_words(excel_stream):
     return words
 
 
-def find_words_in_text(words, pdf_stream):
+def normalize_text(text):
+    # Fix hyphenated line breaks like "multicul-\ntural" → "multicultural"
+    text = re.sub(r'-\s*\n\s*', '', text)
+    # Replace remaining newlines with spaces to preserve sentence flow
+    text = re.sub(r'\n+', ' ', text)
+    return text
+
+def find_words_in_text(words, pdf_stream, case_sensitive=False):
     doc = fitz.open(stream=pdf_stream, filetype="pdf")
     results = {}
 
+    flags = 0 if case_sensitive else re.IGNORECASE
+
     for page_num, page in enumerate(doc, start=1):
+        raw_text = page.get_text()
+        text = normalize_text(raw_text)
         for word in words:
-            instances = page.search_for(word)
-            if instances:
+            # Use regex to find word occurrences
+            matches = re.findall(re.escape(word), text, flags=flags)
+            count = len(matches)
+            if count > 0:
                 if word not in results:
                     results[word] = {"count": 0, "pages": []}
-                results[word]["count"] += len(instances)
                 results[word]["pages"].append(page_num)
+                results[word]["count"] += count
 
     return results
-
 
 def highlight_words_in_text(words, pdf_stream):
     """Highlight words in a PDF loaded from BytesIO, and return a new BytesIO with modified PDF."""
