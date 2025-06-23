@@ -9,15 +9,6 @@ This project provides a FastAPI-based web service for analyzing and highlighting
 - Uses a default list of diversity-related terms if no Excel file is provided.
 - CORS enabled for easy integration with web frontends.
 
-## Folder Structure
-
-- [`main.py`](main.py): FastAPI server with endpoints for flagging and highlighting terms in PDFs.
-- [`api_profile.py`](api_profile.py): Script for profiling and testing the API endpoints.
-- `requirements.txt`: Python dependencies.
-- `.gitignore`: Files and folders excluded from version control.
-- `Flagged Terms.xlsx`: Example Excel file for custom flagged terms.
-- `diversity_paper_output.pdf`, `diversity_paper2.pdf`: Example PDF files for testing.
-
 ## Requirements
 
 - Python 3.10+
