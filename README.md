@@ -1,6 +1,6 @@
 # NSF Language Checker API
 
-This project provides a FastAPI-based web service for analyzing and highlighting flagged terms in PDF documents, with optional support for custom term lists via Excel files. It is designed to help review documents for specific language, such as diversity-related terms, commonly flagged in NSF proposals.
+This project provides a FastAPI-based web service for analyzing and highlighting flagged terms in PDF-formatted proposals, with optional support for custom term lists via Excel files. It is designed to help review proposals for specific language commonly flagged in NSF proposals.
 
 ## Features
 
